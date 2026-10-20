@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Aurix Piped-powered music player prototype with immersive portrait video mode.">
+  <title>Aurix — Piped Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section id="homeScreen" class="screen home-screen" aria-label="Search music">
+      <header class="brand-row">
+        <div class="brand-mark" aria-hidden="true">Λ</div>
+        <div class="brand-copy"><span class="brand-name">AURIX</span><span class="brand-sub">LISTEN WITHOUT LIMITS</span></div>
+        <span class="live-status"><i></i> PIPED AUDIO</span>
+      </header>
+
+      <form id="searchForm" class="search-box" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.2 4.2"></path></svg>
+        <input id="searchInput" type="search" placeholder="Search songs, artists, music videos" autocomplete="off" spellcheck="false" aria-label="Search songs, artists, music videos">
+        <button id="clearSearch" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+        <button class="search-submit" type="submit" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+      </form>
+
+      <div id="homeIntro" class="home-intro">
+        <div class="eyebrow"><span class="eyebrow-line"></span> YOUR SOUND, YOUR FRAME</div>
+        <h1>Music that<br><em>moves with you.</em></h1>
+        <p>Search a track. Press play. Switch to its video when the moment calls for it.</p>
+        <div class="intro-orbit" aria-hidden="true"><div class="orbit-ring ring-one"></div><div class="orbit-ring ring-two"></div><div class="orbit-core"><span>Λ</span></div><div class="orbit-dot"></div></div>
+        <div class="feature-line"><span>01 / AUDIO</span><span>02 / FULL PLAYER</span><span>03 / PORTRAIT VIDEO</span></div>
+      </div>
+
+      <section id="resultsSection" class="results-section" hidden>
+        <div class="section-heading"><div><span class="eyebrow">PIPED SEARCH</span><h2 id="resultsTitle">Search results</h2></div><span id="resultCount" class="result-count"></span></div>
+        <div id="resultsList" class="results-list" aria-live="polite"></div>
+      </section>
+      <div id="homeStatus" class="home-status" role="status">Public Piped instances · availability varies.</div>
+    </section>
+
+    <section id="playerScreen" class="screen player-screen" aria-label="Full music player" hidden>
+      <header class="player-top">
+        <button id="collapsePlayer" class="icon-button" aria-label="Back to search"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></button>
+        <div class="playing-label"><span class="playing-kicker">NOW PLAYING</span><span id="sourceLabel" class="source-label">PIPED STREAM</span></div>
+        <button id="openQueueTop" class="icon-button" aria-label="Open queue"><svg viewBox="0 0 24 24"><path d="M4 6h12M4 12h12M4 18h8M19 5v8M15 9h8"></path></svg></button>
+      </header>
+
+      <div class="artwork-wrap"><div id="artworkGlow" class="artwork-glow"></div><img id="artwork" class="artwork" alt="Current track artwork"><div id="artworkFallback" class="artwork-fallback"><span>Λ</span></div><div class="artwork-caption"><span class="caption-dot"></span><span>AURIX SESSION</span></div></div>
+
+      <section class="track-meta"><div class="track-text"><h1 id="trackTitle">Choose a track</h1><p id="trackArtist">Search music to begin</p></div><button id="likeButton" class="like-button" aria-label="Like track" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20.8 8.7c0 5.4-8.8 10.4-8.8 10.4S3.2 14.1 3.2 8.7a4.5 4.5 0 0 1 8.8-1.1 4.5 4.5 0 0 1 8.8 1.1Z"></path></svg></button></section>
+
+      <section class="timeline" aria-label="Track progress"><input id="audioSeek" type="range" min="0" max="1000" value="0" aria-label="Seek track"><div class="time-row"><span id="currentTime">0:00</span><span id="totalTime">--:--</span></div></section>
+
+      <section class="transport" aria-label="Playback controls">
+        <button id="shuffleButton" class="transport-side" aria-label="Toggle shuffle" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M16 3h5v5M3 7h3c5.5 0 6.5 10 12 10h3M17 14l4 3-4 4M3 17h3c1.5 0 2.8-.8 4-2M14 8c1.1-1 2.2-1 4-1h3M17 2l4 5-4 5"></path></svg></button>
+        <button id="previousButton" class="transport-skip" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M5 5v14M19 5 7 12l12 7z"></path></svg></button>
+        <button id="playButton" class="play-button" aria-label="Play"><svg id="playIcon" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z"></path></svg><span id="playSpinner" class="spinner" hidden></span></button>
+        <button id="nextButton" class="transport-skip" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M19 5v14M5 5l12 7-12 7z"></path></svg></button>
+        <button id="repeatButton" class="transport-side" aria-label="Toggle repeat" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"></path></svg></button>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Player sections">
+        <button id="lyricsTab" class="nav-item" type="button"><svg viewBox="0 0 24 24"><path d="M5 18.5 3.5 21l4.2-1A9 9 0 1 0 3 12a8.8 8.8 0 0 0 2 6.5Z"></path><path d="M8 10h8M8 14h5"></path></svg><span>Lyrics</span></button>
+        <button id="queueTab" class="nav-item" type="button"><svg viewBox="0 0 24 24"><path d="M4 5h11M4 10h11M4 15h7M17 14l4 2.5-4 2.5z"></path><path d="M17 3v11"></path></svg><span>Queue</span></button>
+        <button id="videoTab" class="nav-item video-tab" type="button"><svg viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z"></path></svg><span>Video</span></button>
+      </nav>
+    </section>
+
+    <section id="videoScreen" class="video-screen" aria-label="Portrait music video" hidden>
+      <video id="videoElement" playsinline webkit-playsinline preload="metadata"></video>
+      <audio id="videoAudio" preload="none"></audio>
+      <div class="video-gradient"></div>
+      <header class="video-top"><button id="exitVideo" class="video-round" aria-label="Exit video"><svg viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"></path></svg></button><div class="video-brand"><span class="video-brand-mark">Λ</span><span>AURIX <small>VISUAL MODE</small></span></div><button id="fitVideo" class="video-round" aria-label="Toggle fit mode"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg></button></header>
+      <div class="video-loading" id="videoLoading"><span class="video-spinner"></span><span id="videoLoadingText">Preparing video stream…</span></div>
+      <div id="videoControls" class="video-bottom">
+        <span class="video-eyebrow"><i></i> NOW IN MOTION</span>
+        <h1 id="videoTitle">Track title</h1><p id="videoArtist">Artist / channel</p>
+        <div class="video-transport"><button id="videoPrev" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M5 5v14M19 5 7 12l12 7z"></path></svg></button><button id="videoPlay" class="video-play" aria-label="Pause video"><svg id="videoPlayIcon" viewBox="0 0 24 24"><path d="M7 5v14M17 5v14"></path></svg></button><button id="videoNext" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M19 5v14M5 5l12 7-12 7z"></path></svg></button></div>
+        <div class="video-progress"><input id="videoSeek" type="range" min="0" max="1000" value="0" aria-label="Seek video"><div class="video-times"><span id="videoCurrentTime">0:00</span><span id="videoTotalTime">--:--</span></div></div>
+        <div id="videoHint" class="video-hint">Portrait crop · phone stays upright</div>
+      </div>
+    </section>
+
+    <section id="queueSheet" class="sheet" hidden aria-label="Queue"><button class="sheet-backdrop" data-close-sheet aria-label="Close queue"></button><div class="sheet-panel"><div class="sheet-handle"></div><div class="sheet-heading"><div><span class="eyebrow">YOUR SESSION</span><h2>Up next</h2></div><button class="icon-button" data-close-sheet aria-label="Close queue"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"></path></svg></button></div><div id="queueList" class="queue-list"></div></div></section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <audio id="audioElement" preload="none"></audio>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>

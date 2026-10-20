@@ -1,32 +1,36 @@
-# Aurix Piped Player Prototype
+# Aurix Piped Player — Vercel API Relay edition
 
-A phone-first static web prototype for testing a black, premium Aurix-style music player with a Piped-powered search, audio playback and immersive portrait video mode.
+Phone-first black Aurix player prototype with real Piped audio/video stream metadata, search, queue, and upright 9:16 video mode.
 
-## Run locally
+## What changed
 
-Open `index.html` in a modern browser, or use a local static server (recommended for consistent browser behavior):
+- `app.js` stays at the site root because it runs in the browser and owns the UI. It no longer contacts public Piped API hosts directly.
+- `/api/piped/search` and `/api/piped/streams` are Vercel serverless functions. They forward JSON API requests server-side to an allowlist of public Piped instances, trying small parallel batches with short timeouts. This can avoid browser CORS blocks on the Piped JSON endpoints.
+- Audio/video media URLs returned by Piped are still loaded directly by the browser. The relay intentionally does not proxy entire media files through Vercel; doing that can create high bandwidth/function usage and buffering problems.
+- No iTunes preview or fake audio fallback is used. If Piped does not return a playable stream, the player shows an error.
+- Video defaults to portrait crop (`object-fit: cover`) without rotating the phone; the Fit control restores the original frame.
 
-```bash
-python -m http.server 8000
+## Project layout
+
+```text
+aurix-piped-player/
+├── index.html
+├── styles.css
+├── app.js
+├── vercel.json
+├── lib/
+│   └── piped.js
+├── api/
+│   └── piped/
+│       ├── search.js
+│       └── streams.js
+└── README.md
 ```
 
-Then open `http://localhost:8000` from this directory.
+## Deploy on Vercel
 
-## What it does
+Import this folder as the project root. No build command or environment variables are required. Vercel serves the static player and deploys the two files under `api/piped/` as serverless functions.
 
-- Searches public Piped instances with `/search?q=...&filter=music_videos`.
-- Requests stream metadata from `/streams/:videoId`.
-- Uses Piped `audioStreams` for the regular audio player; no iTunes preview or unrelated audio fallback is used.
-- Uses a compatible combined MP4 video stream where available. If an instance only provides video-only MP4, it attempts to pair the video with the Piped audio stream and synchronize them.
-- The dedicated Video tab opens an immersive portrait player. Landscape video uses `object-fit: cover` by default; the top-right fit control switches to the original aspect ratio. The page never requests device rotation.
-- Exit returns to the audio player at approximately the same timestamp and restores playback if audio was playing before Video mode.
-- Public instance requests are tried in short parallel batches with timeouts. The last responsive instance is remembered locally when browser storage is available.
-- Includes a search-result queue, track controls, progress scrubbing, repeat, shuffle and a local like toggle.
+## Limitations
 
-## Important limitations
-
-Piped is a public third-party service, not a guaranteed streaming backend. Public instances can be down, rate limited, block browser CORS requests, or return streams that expire or aren't supported by a given browser. Actual playback depends on the selected instance and the stream formats it returns. No fake/iTunes audio fallback is used; errors are surfaced in the player.
-
-## Deploy
-
-This is a static site. It can be imported into Vercel as a static project with the project root set to this folder. No environment variables or build step are required.
+Piped is community-run infrastructure: instances may be down, rate-limited, or reject traffic from Vercel. The server-side relay can help when the problem is browser CORS, but it cannot make an unavailable upstream work. Actual media URLs can also expire, fail, or be unsupported by the browser. If metadata loads but media playback still fails, inspect the returned `audioStreams`/`videoStreams` URL and media-host response separately.

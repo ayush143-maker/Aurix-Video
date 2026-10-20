@@ -2,23 +2,6 @@
 
 (() => {
   const $ = (id) => document.getElementById(id);
-  const API_INSTANCES = [
-    'https://pipedapi.kavin.rocks',
-    'https://pipedapi.leptons.xyz',
-    'https://pipedapi.nosebs.ru',
-    'https://pipedapi-libre.kavin.rocks',
-    'https://piped-api.privacy.com.de',
-    'https://pipedapi.adminforge.de',
-    'https://api.piped.yt',
-    'https://pipedapi.drgns.space',
-    'https://pipedapi.owo.si',
-    'https://pipedapi.ducks.party',
-    'https://piped-api.codespace.cz',
-    'https://pipedapi.reallyaweso.me',
-    'https://api.piped.private.coffee',
-    'https://pipedapi.darkness.services',
-    'https://pipedapi.orangenet.cc'
-  ];
   const AUDIO = $('audioElement');
   const VIDEO = $('videoElement');
   const VIDEO_AUDIO = $('videoAudio');
@@ -91,43 +74,50 @@
     const match = source.match(/[?&]v=([A-Za-z0-9_-]{11})/) || source.match(/\/watch\/([A-Za-z0-9_-]{11})/) || source.match(/([A-Za-z0-9_-]{11})/);
     return match ? match[1] : '';
   }
-  function apiOrder(preferred) {
-    let first = preferred;
-    try { first = first || localStorage.getItem('aurix-piped-instance'); } catch (_) { /* storage is optional */ }
-    if (!first || !API_INSTANCES.includes(first)) return [...API_INSTANCES];
-    return [first, ...API_INSTANCES.filter((host) => host !== first)];
-  }
-
-  // API requests run in small parallel batches: a dead instance can't stall the app for ages.
+  // All Piped JSON requests go through same-origin Vercel Functions.
+  // The browser no longer calls public Piped hosts directly (CORS can block them).
   async function fetchFromPiped(path, options = {}) {
-    const hosts = apiOrder(options.preferred);
-    const timeoutMs = options.timeoutMs || 3400;
-    const validator = options.validator || ((data) => data && typeof data === 'object');
-    for (let start = 0; start < hosts.length; start += 4) {
-      const batch = hosts.slice(start, start + 4);
-      const controllers = [];
-      const requests = batch.map(async (host) => {
-        const controller = new AbortController();
-        controllers.push(controller);
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-          const response = await fetch(host + path, { method: 'GET', signal: controller.signal, headers: { Accept: 'application/json' } });
-          if (!response.ok) throw new Error(`Piped returned ${response.status}`);
-          const data = await response.json();
-          if (!validator(data)) throw new Error('Invalid Piped response');
-          try { localStorage.setItem('aurix-piped-instance', host); } catch (_) { /* storage is optional */ }
-          return { data, host };
-        } finally { clearTimeout(timeout); }
-      });
-      try {
-        const winningResponse = await Promise.any(requests);
-        controllers.forEach((controller) => controller.abort());
-        return winningResponse;
-      } catch (_) {
-        controllers.forEach((controller) => controller.abort());
-      }
+    const timeoutMs = Math.max(Number(options.timeoutMs) || 0, 9000);
+    let endpoint;
+    if (path.startsWith('/search?')) {
+      endpoint = '/api/piped/search' + path.slice('/search'.length);
+    } else {
+      const match = path.match(/^\/streams\/([A-Za-z0-9_-]{11})$/);
+      if (!match) throw new Error('Unsupported Piped API route.');
+      endpoint = '/api/piped/streams?id=' + encodeURIComponent(match[1]);
     }
-    throw new Error('All configured public Piped instances failed. They may be down, blocked, or refusing browser requests.');
+    let preferred = options.preferred || '';
+    if (!preferred) {
+      try { preferred = localStorage.getItem('aurix-piped-instance') || ''; } catch (_) { /* storage is optional */ }
+    }
+    if (preferred) endpoint += (endpoint.includes('?') ? '&' : '?') + 'preferred=' + encodeURIComponent(preferred);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        signal: controller.signal,
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      });
+      let payload;
+      try { payload = await response.json(); }
+      catch (_) { throw new Error(`Aurix API relay returned invalid JSON (HTTP ${response.status}).`); }
+      if (!response.ok) throw new Error(payload.error || `Aurix API relay failed (HTTP ${response.status}).`);
+      if (!payload || !payload.data || typeof payload.data !== 'object') throw new Error('Aurix API relay returned an invalid Piped response.');
+      if (payload.host) {
+        try { localStorage.setItem('aurix-piped-instance', payload.host); } catch (_) { /* storage is optional */ }
+      }
+      const data = payload.data;
+      const validator = options.validator || ((value) => value && typeof value === 'object');
+      if (!validator(data)) throw new Error('The Piped instance returned an unexpected response.');
+      return { data, host: payload.host || 'Piped via Aurix API relay' };
+    } catch (error) {
+      if (error && error.name === 'AbortError') throw new Error('Aurix API relay timed out. The server may be busy or no Piped instance responded.');
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   function renderResults(items, host) {
@@ -165,11 +155,11 @@
     $('resultsSection').hidden = false;
     $('resultsTitle').textContent = cleanQuery;
     $('resultCount').textContent = '';
-    $('resultsList').innerHTML = '<div class="home-loading"><span class="mini-spinner"></span><span>Looking across public Piped instances…</span></div>';
-    $('homeStatus').textContent = 'Trying available Piped instances…';
+    $('resultsList').innerHTML = '<div class="home-loading"><span class="mini-spinner"></span><span>Searching through Aurix API relay…</span></div>';
+    $('homeStatus').textContent = 'Routing search through Aurix API relay…';
     try {
       const { data, host } = await fetchFromPiped(`/search?q=${encodeURIComponent(cleanQuery)}&filter=music_videos`, {
-        timeoutMs: 3200,
+        timeoutMs: 9000,
         validator: (payload) => payload && Array.isArray(payload.items)
       });
       if (token !== state.searchToken) return;
@@ -189,11 +179,11 @@
       state.results = tracks;
       state.queue = tracks.slice();
       renderResults(tracks, host);
-      $('homeStatus').textContent = `Search via ${new URL(host).hostname} · stream availability varies.`;
+      $('homeStatus').textContent = `Search via ${new URL(host).hostname} · stream availability varies by instance.`;
       if (!tracks.length) $('resultsList').innerHTML = '<div class="empty-state"><span class="error-title">No playable video results</span>Try another search phrase. Search results must include a video ID to play.</div>';
     } catch (error) {
       if (token !== state.searchToken) return;
-      $('resultsList').innerHTML = `<div class="empty-state"><span class="error-title">Piped could not respond</span>${escapeHtml(error.message)}<br><br>Try again shortly or search again when a public instance is available.</div>`;
+      $('resultsList').innerHTML = `<div class="empty-state"><span class="error-title">Piped could not respond</span>${escapeHtml(error.message)}<br><br>The relay will retry several public instances. If it still fails, they may be down or blocking Vercel requests.</div>`;
       $('homeStatus').textContent = 'No stream provider connected right now.';
     }
   }
@@ -206,7 +196,7 @@
     }
     const { data, host } = await fetchFromPiped(`/streams/${encodeURIComponent(track.id)}`, {
       preferred: track.apiBase,
-      timeoutMs: 3800,
+      timeoutMs: 9000,
       validator: (payload) => payload && Array.isArray(payload.audioStreams) && Array.isArray(payload.videoStreams)
     });
     track.streams = data;
